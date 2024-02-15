@@ -1,0 +1,39 @@
+Server intro exercise ;-)
+
+This is a working server using node http module!
+
+It's a simple server that can be launched by typing in terminal:
+> node main.py
+
+When you change something, should you close and rerun it?. Nope. add --reload to the initiation.
+
+*The server is up and running ALL the time, until you shut it down, or an error crashes it.
+
+
+Instructions:
+
+1- Complete the /json route by returning the customers to the client as instructed
+2- Add another route
+   /saints
+   Which will send back only the saints
+3- Add another route
+   /short-desc
+   Which will send back only the customers names and occupations.
+   Show it in an html table.
+4- Add another route
+   /who?name=abraham
+   (This is called: query parameter)
+   This route will send back only the given customer (name=rachel will send back 'No such customer')
+   (If you change to /who?name=miryam and hit enter, Miryam data should be shown)
+5- Update /saints
+   /saints?isSaint=true
+   Which will return saints or not saints, depending on the query parameter
+6- Add another ability to /saints route - POST request.
+   When sending a new saint object to this route using POST http method - add the new saint to the json file.
+   Don't expect to get the new id - The server is responsible for that!   
+   *Use Postman (install if needed)
+   **Same endpoint (/saints) can serve different purposes depending on the HTTP method: GET for fetching, POST for creating
+
+-Don't forget you have the debugger! 
+-While solving bugs, it's a good oportunity to get to know your environment by following your code, step by step.
+ This is the way to inspect the request object and see where the relevant data lays.

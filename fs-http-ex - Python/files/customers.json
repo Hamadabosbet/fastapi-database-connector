@@ -1,0 +1,21 @@
+[
+    {
+        "id": 1,
+        "name": "Abraham",
+        "age": 120,
+        "occupation": {
+            "name": "Our Father",
+            "isSaint": false
+        }
+    },
+    {
+        "id": 1,
+        "name": "hamad",
+        "age": 0,
+        "occupation": {
+            "name": "sa",
+            "isSaint": true
+        }
+    }
+    
+]
