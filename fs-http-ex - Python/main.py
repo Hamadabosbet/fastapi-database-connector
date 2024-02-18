@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query, HTTPException, Path,Cookie,Depends,Response
 from fastapi.responses import HTMLResponse
 import json
+from datetime import datetime
 from pydantic import BaseModel
 from database import connect_to_database 
 import secrets
@@ -33,9 +34,20 @@ class Login(BaseModel):
 
 
 
+def create_error_message(status: int, message: str) -> dict:
+    return {
+        "status": status,
+        "message": message,
+        "date": datetime.now().isoformat()
+    }
+
+
+
+
+
 def is_admin_logged_in(session_token: str = Cookie(None)):
     if session_token is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+         raise HTTPException(status_code=401,detail=create_error_message(401,"Unauthorized"))
     return True
     
 
@@ -52,7 +64,8 @@ async def login(login: Login, response: Response):
         response.set_cookie(key="session_token", value=session_token)  # Set your desired session token value
         return {"message": "Login successful"}
     else:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        raise HTTPException(status_code=401,detail=create_error_message(401,"Invalid credentials"))
 
 
 
@@ -131,7 +144,7 @@ async def get_customer(id: int = Query(..., description="Customer ID")):
 @app.get("/admin/saint/age/{min_age}/{max_age}",dependencies=[Depends(is_admin_logged_in)])
 async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
-        raise HTTPException(status_code=400, detail="Minimum age must be less than maximum age.")
+        raise HTTPException(status_code=400,detail=create_error_message(400,"Minimum age must be less than maximum age"))
     
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true) AND age BETWEEN %s AND %s", (min_age, max_age))
     saints = db_cursor.fetchall()
@@ -140,7 +153,7 @@ async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0
 @app.get("/admin/notsaint/age/{min_age}/{max_age}",dependencies=[Depends(is_admin_logged_in)])
 async def not_saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
-        raise HTTPException(status_code=400, detail="Minimum age must be less than maximum age.")
+        raise HTTPException(status_code=400, detail=create_error_message(400,"Minimum age must be less than maximum age."))
     
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = false) AND age BETWEEN %s AND %s", (min_age, max_age))
     not_saints = db_cursor.fetchall()
