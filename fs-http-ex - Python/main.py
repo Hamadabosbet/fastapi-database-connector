@@ -2,20 +2,15 @@ from fastapi import FastAPI, Query, HTTPException, Path
 from fastapi.responses import HTMLResponse
 import json
 from pydantic import BaseModel
-import mysql.connector
+from database import connect_to_database 
 
 app = FastAPI()
 with open('./files/customers.json', 'r') as file:
     customers_data = json.load(file)
 
 
-# Connect to MySQL database
-db_connection = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Hamad12345",
-    database="saints"
-)
+db_connection = connect_to_database()  # Connect to the database
+
 db_cursor = db_connection.cursor(dictionary=True)
 
 class Occupation(BaseModel):
