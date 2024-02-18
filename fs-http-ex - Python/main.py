@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Query, HTTPException, Path,Cookie,Depends,Response
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Query, HTTPException, Path, Cookie, Depends, Response,Request
+from fastapi.responses import HTMLResponse,JSONResponse
 import json
 from datetime import datetime
 from pydantic import BaseModel
@@ -10,9 +10,7 @@ app = FastAPI()
 with open('./files/customers.json', 'r') as file:
     customers_data = json.load(file)
 
-
 db_connection = connect_to_database()  # Connect to the database
-
 db_cursor = db_connection.cursor(dictionary=True)
 
 class Occupation(BaseModel):
@@ -32,26 +30,28 @@ class Login(BaseModel):
     username: str
     password: str
 
-
-
-def create_error_message(status: int, message: str) -> dict:
-    return {
-        "status": status,
-        "message": message,
-        "date": datetime.now().isoformat()
-    }
-
-
-
-
+class CustomHTTPException(HTTPException):
+    def __init__(self, status_code: int = 400, detail: dict = None):
+        self.status_code = status_code
+        self.detail = detail or {
+            "status": status_code,
+            "message": "An error occurred",
+            "date": datetime.now().isoformat()
+        }
+        super().__init__(status_code=status_code, detail=self.detail)
 
 def is_admin_logged_in(session_token: str = Cookie(None)):
     if session_token is None:
-         raise HTTPException(status_code=401,detail=create_error_message(401,"Unauthorized"))
+        raise CustomHTTPException(status_code=401, detail={
+            "status": 401,
+            "message": "Unauthorized",
+            "date": datetime.now().isoformat()
+        })
     return True
-    
 
-
+@app.exception_handler(CustomHTTPException)
+async def custom_exception_handler(request: Request, exc: CustomHTTPException):
+    return JSONResponse(status_code=exc.status_code, content=exc.detail)
 
 @app.post("/login")
 async def login(login: Login, response: Response):
@@ -64,13 +64,11 @@ async def login(login: Login, response: Response):
         response.set_cookie(key="session_token", value=session_token)  # Set your desired session token value
         return {"message": "Login successful"}
     else:
-
-        raise HTTPException(status_code=401,detail=create_error_message(401,"Invalid credentials"))
-
-
-
-
-
+        raise CustomHTTPException(status_code=401, detail={
+            "status": 401,
+            "message": "Invalid credentials",
+            "date": datetime.now().isoformat()
+        })
 
 @app.post("/saints/")
 async def create_saint(saint: Saint):
@@ -104,7 +102,6 @@ async def get_saints(is_Saint: bool = Query(True, description="Filter by saints"
     else:
         non_saints = [customer for customer in customers_data if not customer['occupation']['isSaint']]
         return non_saints
-
 
 @app.get("/customers", response_class=HTMLResponse)
 async def display_customers():
@@ -141,31 +138,39 @@ async def get_customer(id: int = Query(..., description="Customer ID")):
             return customer
     return "No such customer"
 
-@app.get("/admin/saint/age/{min_age}/{max_age}",dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/saint/age/{min_age}/{max_age}", dependencies=[Depends(is_admin_logged_in)])
 async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
-        raise HTTPException(status_code=400,detail=create_error_message(400,"Minimum age must be less than maximum age"))
+        raise HTTPException(status_code=400, detail={
+            "status": 400,
+            "message": "Minimum age must be less than maximum age",
+            "date": datetime.now().isoformat()
+        })
     
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true) AND age BETWEEN %s AND %s", (min_age, max_age))
     saints = db_cursor.fetchall()
     return saints
 
-@app.get("/admin/notsaint/age/{min_age}/{max_age}",dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/notsaint/age/{min_age}/{max_age}", dependencies=[Depends(is_admin_logged_in)])
 async def not_saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
-        raise HTTPException(status_code=400, detail=create_error_message(400,"Minimum age must be less than maximum age."))
+        raise HTTPException(status_code=400, detail={
+            "status": 400,
+            "message": "Minimum age must be less than maximum age",
+            "date": datetime.now().isoformat()
+        })
     
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = false) AND age BETWEEN %s AND %s", (min_age, max_age))
     not_saints = db_cursor.fetchall()
     return not_saints
 
-@app.get("/admin/name/{name}",dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/name/{name}", dependencies=[Depends(is_admin_logged_in)])
 async def saints_with_name(name: str = Path(..., title="Name", min_length=2, max_length=11, pattern="^[a-zA-Z]+$")):
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true) AND name LIKE %s", ('%' + name + '%',))
     saints = db_cursor.fetchall()
     return saints
 
-@app.get("/admin/average",dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/average", dependencies=[Depends(is_admin_logged_in)])
 async def average_ages():
     saint_avg_query = "SELECT AVG(age) AS saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true)"
     not_saint_avg_query = "SELECT AVG(age) AS not_saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = false)"
