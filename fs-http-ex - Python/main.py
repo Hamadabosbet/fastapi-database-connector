@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from database import connect_to_database 
 import secrets
+from typing import Optional
 
 app = FastAPI()
 with open('./files/customers.json', 'r') as file:
@@ -12,6 +13,8 @@ with open('./files/customers.json', 'r') as file:
 
 db_connection = connect_to_database()  # Connect to the database
 db_cursor = db_connection.cursor(dictionary=True)
+
+active_session_tokens = set()
 
 class Occupation(BaseModel):
     id: int
@@ -40,14 +43,30 @@ class CustomHTTPException(HTTPException):
         }
         super().__init__(status_code=status_code, detail=self.detail)
 
-def is_admin_logged_in(session_token: str = Cookie(None)):
+
+
+
+
+def validate_session_token(session_token: Optional[str] = Cookie(None)):
     if session_token is None:
         raise CustomHTTPException(status_code=401, detail={
             "status": 401,
             "message": "Unauthorized",
             "date": datetime.now().isoformat()
         })
+    # Check if the session token is in the set of active tokens
+    if session_token not in active_session_tokens:
+        raise CustomHTTPException(status_code=401, detail={
+            "status": 401,
+            "message": "Invalid session token",
+            "date": datetime.now().isoformat()
+        })
     return True
+
+
+
+
+
 
 @app.exception_handler(CustomHTTPException)
 async def custom_exception_handler(request: Request, exc: CustomHTTPException):
@@ -61,7 +80,9 @@ async def login(login: Login, response: Response):
     if user:
         session_token = secrets.token_urlsafe(32)
         # Set session cookie upon successful authentication
-        response.set_cookie(key="session_token", value=session_token)  # Set your desired session token value
+        response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="strict")
+        # Add the session token to the set of active tokens
+        active_session_tokens.add(session_token)
         return {"message": "Login successful"}
     else:
         raise CustomHTTPException(status_code=401, detail={
@@ -69,6 +90,7 @@ async def login(login: Login, response: Response):
             "message": "Invalid credentials",
             "date": datetime.now().isoformat()
         })
+
 
 @app.post("/saints/")
 async def create_saint(saint: Saint):
@@ -138,7 +160,7 @@ async def get_customer(id: int = Query(..., description="Customer ID")):
             return customer
     return "No such customer"
 
-@app.get("/admin/saint/age/{min_age}/{max_age}", dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/saint/age/{min_age}/{max_age}", dependencies=[Depends(validate_session_token)])
 async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
         raise HTTPException(status_code=400, detail={
@@ -151,7 +173,7 @@ async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0
     saints = db_cursor.fetchall()
     return saints
 
-@app.get("/admin/notsaint/age/{min_age}/{max_age}", dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/notsaint/age/{min_age}/{max_age}", dependencies=[Depends(validate_session_token)])
 async def not_saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
         raise HTTPException(status_code=400, detail={
@@ -164,13 +186,13 @@ async def not_saints_in_age_range(min_age: int = Path(..., title="Minimum Age", 
     not_saints = db_cursor.fetchall()
     return not_saints
 
-@app.get("/admin/name/{name}", dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/name/{name}", dependencies=[Depends(validate_session_token)])
 async def saints_with_name(name: str = Path(..., title="Name", min_length=2, max_length=11, pattern="^[a-zA-Z]+$")):
     db_cursor.execute("SELECT * FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true) AND name LIKE %s", ('%' + name + '%',))
     saints = db_cursor.fetchall()
     return saints
 
-@app.get("/admin/average", dependencies=[Depends(is_admin_logged_in)])
+@app.get("/admin/average", dependencies=[Depends(validate_session_token)])
 async def average_ages():
     saint_avg_query = "SELECT AVG(age) AS saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true)"
     not_saint_avg_query = "SELECT AVG(age) AS not_saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = false)"
