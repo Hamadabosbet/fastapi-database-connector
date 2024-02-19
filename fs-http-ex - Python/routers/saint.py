@@ -26,6 +26,11 @@ class Saint(BaseModel):
     password: str
     is_admin: bool
 
+
+@router.get("/json")
+async def get_json():
+    return customers_data
+
 @router.post("/saints/")
 async def create_saint(saint: Saint):
     # Check if the occupation already exists in the database
