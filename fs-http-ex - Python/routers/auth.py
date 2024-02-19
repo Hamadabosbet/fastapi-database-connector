@@ -25,27 +25,44 @@ class Login(BaseModel):
 async def index():
     return "Ahalan! You can fetch some json by navigating to '/json'"
 
-def validate_session_token(session_token: Optional[str] = Cookie(None)):
+def validate_admin_session(session_token: Optional[str] = Cookie(None)):
     if session_token is None:
         raise CustomHTTPException(status_code=401, detail={
             "status": 401,
             "message": "Unauthorized",
             "date": datetime.now().isoformat()
         })
-     # Decrypt the session token
+
+    # Decrypt the session token
     decrypted_token = cipher_suite.decrypt(session_token.encode())
-    if decrypted_token.decode() not in active_session_tokens:
+    user_id = decrypted_token.decode().split("-")[-1]
+    
+    # Retrieve user information from the database
+    query = "SELECT * FROM Saint WHERE id = %s"
+    db_cursor.execute(query, (user_id,))
+    user = db_cursor.fetchone()
+    
+    if not user:
         raise CustomHTTPException(status_code=401, detail={
             "status": 401,
-            "message": "Invalid session token",
+            "message": "User not found",
             "date": datetime.now().isoformat()
         })
+
+    # Check if the user is an admin
+    if user.get('is_admin') != 1:
+        raise CustomHTTPException(status_code=403, detail={
+            "status": 403,
+            "message": "Forbidden: User is not an admin",
+            "date": datetime.now().isoformat()
+        })
+
     return True
 
 
 @router.post("/login")
 async def login(login: Login, response: Response):
-    query = "SELECT * FROM Saint WHERE name = %s AND password = %s AND is_admin = 1"
+    query = "SELECT * FROM Saint WHERE name = %s AND password = %s"
     db_cursor.execute(query, (login.username, login.password))
     user = db_cursor.fetchone()
     if user:
