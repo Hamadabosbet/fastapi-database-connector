@@ -2,12 +2,16 @@ from fastapi import APIRouter, Depends, Path
 from datetime import datetime
 from database import connect_to_database
 from .auth import validate_session_token
-from exceptions import CustomHTTPException  # Import the custom exception
+from exceptions import CustomHTTPException 
+
 
 router = APIRouter()
 
 db_connection = connect_to_database()
 db_cursor = db_connection.cursor(dictionary=True)
+
+
+
 
 @router.get("/admin/saint/age/{min_age}/{max_age}", dependencies=[Depends(validate_session_token)])
 async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):

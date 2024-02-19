@@ -5,12 +5,16 @@ from typing import Optional
 from database import connect_to_database
 from exceptions import CustomHTTPException
 import secrets
+from cryptography.fernet import Fernet
 
 router = APIRouter()
+
 
 db_connection = connect_to_database()
 db_cursor = db_connection.cursor(dictionary=True)
 
+encryption_key = Fernet.generate_key()
+cipher_suite = Fernet(encryption_key)
 active_session_tokens = set()
 
 class Login(BaseModel):
@@ -28,7 +32,9 @@ def validate_session_token(session_token: Optional[str] = Cookie(None)):
             "message": "Unauthorized",
             "date": datetime.now().isoformat()
         })
-    if session_token not in active_session_tokens:
+     # Decrypt the session token
+    decrypted_token = cipher_suite.decrypt(session_token.encode())
+    if decrypted_token.decode() not in active_session_tokens:
         raise CustomHTTPException(status_code=401, detail={
             "status": 401,
             "message": "Invalid session token",
@@ -44,8 +50,14 @@ async def login(login: Login, response: Response):
     user = db_cursor.fetchone()
     if user:
         session_token = secrets.token_urlsafe(32)
-        response.set_cookie(key="session_token", value=session_token, httponly=True, samesite="strict")
-        active_session_tokens.add(session_token)
+        # Append user ID for uniqueness
+        session_token_with_id = f"{session_token}-{user['id']}"
+        # Encrypt the session token
+        encrypted_token = cipher_suite.encrypt(session_token_with_id.encode()).decode()
+        response.set_cookie(key="session_token", value=encrypted_token, httponly=True, samesite="strict")
+        encrypted_password = cipher_suite.encrypt(user['password'].encode())
+        response.set_cookie(key="password", value=encrypted_password, httponly=True, samesite="strict")
+        active_session_tokens.add(session_token_with_id)
         return {"message": "Login successful"}
     else:
         raise CustomHTTPException(status_code=401, detail={
