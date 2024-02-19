@@ -25,7 +25,7 @@ class Login(BaseModel):
 async def index():
     return "Ahalan! You can fetch some json by navigating to '/json'"
 
-def validate_session_token(session_token: Optional[str] = Cookie(None)):
+def validate_admin_session(session_token: Optional[str] = Cookie(None)):
     if session_token is None:
         raise CustomHTTPException(status_code=401, detail={
             "status": 401,
