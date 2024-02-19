@@ -26,6 +26,7 @@ async def saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0
     saints = db_cursor.fetchall()
     return saints
 
+
 @router.get("/admin/notsaint/age/{min_age}/{max_age}", dependencies=[Depends(validate_session_token)])
 async def not_saints_in_age_range(min_age: int = Path(..., title="Minimum Age", ge=0), max_age: int = Path(..., title="Maximum Age", ge=0)):
     if min_age >= max_age:
@@ -45,12 +46,21 @@ async def saints_with_name(name: str = Path(..., title="Name", min_length=2, max
     saints = db_cursor.fetchall()
     return saints
 
+
 @router.get("/admin/average", dependencies=[Depends(validate_session_token)])
 async def average_ages():
-    saint_avg_query = "SELECT AVG(age) AS saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = true)"
-    not_saint_avg_query = "SELECT AVG(age) AS not_saint_avg FROM Saint WHERE occupation_id IN (SELECT id FROM Occupation WHERE isSaint = false)"
-    db_cursor.execute(saint_avg_query)
-    saint_avg = db_cursor.fetchone()['saint_avg']
-    db_cursor.execute(not_saint_avg_query)
-    not_saint_avg = db_cursor.fetchone()['not_saint_avg']
-    return {"saint_average_age": saint_avg, "not_saint_average_age": not_saint_avg}
+    try:
+        db_cursor.callproc("calculate_average_age", (True,))
+        saint_avg = db_cursor.fetchone()['average_age']
+        
+        db_cursor.callproc("calculate_average_age", (False,))
+        not_saint_avg = db_cursor.fetchone()['average_age']
+        
+        return {"saint_average_age": saint_avg, "not_saint_average_age": not_saint_avg}
+    except Exception as e:
+        raise CustomHTTPException(status_code=500, detail={
+            "status": 500,
+            "message": "Error occurred while fetching average ages",
+            "date": datetime.now().isoformat(),
+            "error": str(e)
+        })
