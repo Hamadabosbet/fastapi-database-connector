@@ -17,6 +17,9 @@ class Login(BaseModel):
     username: str
     password: str
 
+@router.get("/")
+async def index():
+    return "Ahalan! You can fetch some json by navigating to '/json'"
 
 def validate_session_token(session_token: Optional[str] = Cookie(None)):
     if session_token is None:
