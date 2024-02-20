@@ -25,11 +25,17 @@ class Saint(BaseModel):
     occupation: Occupation
     password: str
     is_admin: bool
+    image_path: str
 
 
 @router.get("/json")
 async def get_json():
     return customers_data
+
+
+
+
+
 
 @router.post("/saints/")
 async def create_saint(saint: Saint):
@@ -42,8 +48,8 @@ async def create_saint(saint: Saint):
         db_connection.commit()
 
     # Insert the saint into the Saint table
-    insert_query = "INSERT INTO Saint (id, name, age, occupation_id,password,is_admin) VALUES (%s, %s, %s, %s,%s,%s)"
-    db_cursor.execute(insert_query, (saint.id, saint.name, saint.age, saint.occupation.id,saint.password,saint.is_admin))
+    insert_query = "INSERT INTO Saint (id, name, age, occupation_id,password,is_admin) VALUES (%s, %s, %s, %s,%s,%s,%s)"
+    db_cursor.execute(insert_query, (saint.id, saint.name, saint.age, saint.occupation.id,saint.password,saint.is_admin,saint.image_path))
     db_connection.commit()
     return saint
 
@@ -58,24 +64,36 @@ async def get_saints(is_Saint: bool = Query(True, description="Filter by saints"
 
 @router.get("/customers", response_class=HTMLResponse)
 async def display_customers():
+    # Fetch all saints from the database along with their associated occupation names and image paths
+    db_cursor.execute("""
+        SELECT saint.id, saint.name AS saint_name, saint.age, saint.password, saint.is_admin, Occupation.name AS occupation_name, saint.image_path
+        FROM saint
+        INNER JOIN Occupation ON saint.occupation_id = Occupation.id
+    """)
+    saints = db_cursor.fetchall()
+
     table_content = ""
-    for customer in customers_data:
-        link = f"<a href='/who?id={customer['id']}'>{customer['name']}</a>"
-        table_content += f"<tr><td>{link}</td><td>{customer['age']}</td><td>{customer['occupation']['name']}</td></tr>"
+    for saint in saints:
+        link = f"<a href='/who?id={saint['id']}'>{saint['saint_name']}</a>"
+        image_tag = f"<img src='{saint['image_path']}' alt='{saint['saint_name']}'>"
+        table_content += f"<tr><td>{link}</td><td>{saint['age']}</td><td>{saint['occupation_name']}</td><td>{saint['password']}</td><td>{'Admin' if saint['is_admin'] else 'Not Admin'}</td><td>{image_tag}</td></tr>"
 
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Customers</title>
+        <title>Saints</title>
     </head>
     <body>
-        <h1>Customers</h1>
+        <h1>Saints</h1>
         <table border="1">
             <tr>
                 <th>Name</th>
                 <th>Age</th>
                 <th>Occupation</th>
+                <th>Password</th>
+                <th>Admin</th>
+                <th>Image</th>
             </tr>
             {table_content}
         </table>
@@ -85,8 +103,16 @@ async def display_customers():
     return html_content
 
 @router.get("/who")
-async def get_customer(id: int = Query(..., description="Customer ID")):
-    for customer in customers_data:
-        if customer['id'] == id:
-            return customer
-    return "No such customer"
+async def get_saint(id: int = Query(..., description="Saint ID")):
+    # Fetch the saint details from the database based on the provided ID
+    db_cursor.execute("""
+        SELECT saint.id, saint.name AS saint_name, saint.age, saint.password, saint.is_admin, Occupation.name AS occupation_name
+        FROM saint
+        INNER JOIN Occupation ON saint.occupation_id = Occupation.id
+        WHERE saint.id = %s
+    """, (id,))
+    saint = db_cursor.fetchone()
+    if saint:
+        return saint
+    else:
+        return "No such saint"

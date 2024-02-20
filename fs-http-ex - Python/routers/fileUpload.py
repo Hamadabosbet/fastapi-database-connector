@@ -3,7 +3,7 @@ from database import connect_to_database
 from fastapi.responses import HTMLResponse
 from .auth import validate_user_session,get_user_id_from_session_token
 import os
-import shutil
+import aiofiles
 
 router = APIRouter()
 
@@ -42,11 +42,10 @@ async def upload_form():
 @router.post("/upload", dependencies=[Depends(validate_user_session)])
 async def upload_file(session_token: str = Cookie(None), file: UploadFile = File(...), file_name: str = Form(...)):
     # Decrypt the session token to get user_id
-
     user_id = get_user_id_from_session_token(session_token)
 
     # Save the file
-    file_path = save_file_to_directory(file, UPLOAD_DIRECTORY)
+    file_path = await save_uploaded_file(UPLOAD_DIRECTORY, file)
 
     # Insert file path into the database for the user
     query = "UPDATE saint SET image_path = %s WHERE id = %s"
@@ -56,9 +55,8 @@ async def upload_file(session_token: str = Cookie(None), file: UploadFile = File
     return {"file_name": file_name, "file_path": file_path}
 
 
-
-def save_file_to_directory(file: UploadFile, upload_directory: str) -> str:
+async def save_uploaded_file(upload_directory: str, file: UploadFile):
     file_path = os.path.join(upload_directory, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    return file_path
+    async with aiofiles.open(file_path, "wb") as buffer:
+        await buffer.write(await file.read())
+    return file.filename
