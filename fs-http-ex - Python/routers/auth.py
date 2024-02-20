@@ -25,6 +25,11 @@ class Login(BaseModel):
 async def index():
     return "Ahalan! You can fetch some json by navigating to '/json'"
 
+def get_user_id_from_session_token(session_token: str) -> int:
+    decrypted_token = cipher_suite.decrypt(session_token.encode())
+    user_id = int(decrypted_token.decode().split("-")[-1])
+    return user_id
+
 def validate_admin_session(session_token: Optional[str] = Cookie(None)):
     if session_token is None:
         raise CustomHTTPException(status_code=401, detail={
@@ -34,8 +39,7 @@ def validate_admin_session(session_token: Optional[str] = Cookie(None)):
         })
 
     # Decrypt the session token
-    decrypted_token = cipher_suite.decrypt(session_token.encode())
-    user_id = decrypted_token.decode().split("-")[-1]
+    user_id = get_user_id_from_session_token(session_token)
     
     # Retrieve user information from the database
     query = "SELECT * FROM Saint WHERE id = %s"
@@ -58,6 +62,35 @@ def validate_admin_session(session_token: Optional[str] = Cookie(None)):
         })
 
     return True
+
+
+
+def validate_user_session(session_token: Optional[str] = Cookie(None)):
+    if session_token is None:
+        raise CustomHTTPException(status_code=401, detail={
+            "status": 401,
+            "message": "Unauthorized",
+            "date": datetime.now().isoformat()
+        })
+
+    # Decrypt the session token
+    
+    user_id = get_user_id_from_session_token(session_token)
+    
+    # Retrieve user information from the database
+    query = "SELECT * FROM Saint WHERE id = %s"
+    db_cursor.execute(query, (user_id,))
+    user = db_cursor.fetchone()
+    
+    if not user:
+        raise CustomHTTPException(status_code=401, detail={
+            "status": 401,
+            "message": "User not found",
+            "date": datetime.now().isoformat()
+        })
+
+    return True
+
 
 
 @router.post("/login")
