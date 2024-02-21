@@ -1,6 +1,6 @@
 # FastAPI Application
 
-This repository contains a FastAPI application for managing saints and customers, along with various functionalities like authentication, file upload, and admin operations.
+This repository contains a FastAPI application for managing saints , along with various functionalities like authentication, file upload, and admin operations.
 
 ## Features
 
