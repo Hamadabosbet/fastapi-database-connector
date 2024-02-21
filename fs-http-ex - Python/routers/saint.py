@@ -75,7 +75,7 @@ async def display_customers():
     table_content = ""
     for saint in saints:
         link = f"<a href='/who?id={saint['id']}'>{saint['saint_name']}</a>"
-        image_tag = f"<img src='{saint['image_path']}' alt='{saint['saint_name']}'>"
+        image_tag = f"<img src='{saint['image_path']}' alt='{saint['saint_name']}' height='100' width='100'>"
         table_content += f"<tr><td>{link}</td><td>{saint['age']}</td><td>{saint['occupation_name']}</td><td>{saint['password']}</td><td>{'Admin' if saint['is_admin'] else 'Not Admin'}</td><td>{image_tag}</td></tr>"
 
     html_content = f"""
@@ -100,7 +100,7 @@ async def display_customers():
     </body>
     </html>
     """
-    return html_content
+    return HTMLResponse(content=html_content)
 
 @router.get("/who")
 async def get_saint(id: int = Query(..., description="Saint ID")):
