@@ -1,2 +1,12 @@
-# fastapi-database-connector
-Repository for a FastAPI application leveraging MySQL database connectivity. This repository contains code for a RESTful API built with FastAPI, enabling CRUD operations on a MySQL database. It provides endpoints for managing and retrieving data, demonstrating best practices for API development using FastAPI and MySQL Connector,and using TestClient
+# FastAPI Application
+
+This repository contains a FastAPI application for managing saints and customers, along with various functionalities like authentication, file upload, and admin operations.
+
+## Features
+
+- **Authentication**: Users can authenticate using session tokens.
+- **CRUD Operations**: Perform CRUD operations on saints and customers data.
+- **File Upload**: Upload files securely to Amazon S3.
+- **Admin Operations**: Admins can perform various operations like filtering saints by age, calculating average ages, etc.
+- **Database Integration**: Interacts with a MySQL database to store and retrieve data.
+- **Testing**: Unit testing using pytest and TestClient.
